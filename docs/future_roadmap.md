@@ -27,10 +27,17 @@ Currently, we rank generally. We should personalize using **User Profiles**:
 - **Circuit Breakers**: If Qdrant fails, the system currently logs an error. We should implement automatic circuit breaking to stop trying Qdrant and degrade gracefully to BM25-only.
 - **Kubernetes**: Move from Docker Compose to K8s for auto-scaling.
 
-## 4. Advanced Retrieval (SPLADE)
+## 4. Advanced Retrieval (SPLADE & HyDE)
 - **Problem**: BM25 is purely keyword-based and misses context (synonyms), while Dense vectors miss exact matches.
-- **Solution**: Implement **SPLADE** (Sparse Lexical and Expansion).
-- **Benefit**: Replaces in-memory BM25 with Qdrant's Sparse Vector support, allowing us to offload index management and get better retrieval quality.
+- **SPLADE**: Replace in-memory BM25 with sparse neural vectors.
+- **HyDE (Hypothetical Document Embeddings)**:
+    - **Concept**: Use an LLM to generate a "Fake Ad" answering the user's query, then embed that fake ad to search for real ones.
+    - **Pros**: Bridges the gap between short queries and long documents.
+    - **Cons**: Adds latency (requires LLM inference at query time).
+- **Step-Back Prompting**:
+    - **Concept**: LLM generates a more abstract "Step Back" question (e.g., "Nike Shoes" -> "Athletic Footwear") to broaden the search scope.
+- **Chain-of-Thought Retrieval**:
+    - **Concept**: Break complex queries into sequential steps (e.g., "I need a laptop for gaming" -> 1. Search GPU specs, 2. Search High Refresh Rate screens).
 
 ## 5. Advanced Ranking (Project "Lambda")
 - Replace the simple linear formula (`0.5*Sem + 0.3*Bid`) with a **Learning-to-Rank (LTR)** model (XGBoost/LightGBM) trained on actual click data.
