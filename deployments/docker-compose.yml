@@ -1,0 +1,147 @@
+services:
+  # ============================================
+  # Go Gateway - High-throughput OpenRTB Handler
+  # ============================================
+  gateway:
+    build:
+      context: ..
+      dockerfile: cmd/gateway/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - GATEWAY_PORT=8080
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+      - KAFKA_BROKERS=kafka:29092
+      - NATS_URL=nats://nats:4222
+      - REDIS_HOST=redis
+      - LOG_OUTPUT_DIR=/data/logs
+      - EMBEDDING_SERVICE_URL=http://enricher:8001/embed
+      - MOCK_EMBEDDING=true
+    volumes:
+      - ../data:/data
+    depends_on:
+      kafka:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+      nats:
+        condition: service_started
+      redis:
+        condition: service_started
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # ============================================
+  # Python Enricher - LLM + Embeddings Service
+  # ============================================
+  enricher:
+    build:
+      context: ../python/enricher
+    ports:
+      - "8001:8001"
+      - "50051:50051"
+    environment:
+      - OLLAMA_HOST=http://host.docker.internal:11434
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+    volumes:
+      - ../data:/data
+    depends_on:
+      - qdrant
+    restart: unless-stopped
+
+  # ============================================
+  # Qdrant - Vector Database
+  # ============================================
+  qdrant:
+    image: qdrant/qdrant:v1.7.4
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    environment:
+      - QDRANT__SERVICE__GRPC_PORT=6334
+    restart: unless-stopped
+
+  # ============================================
+  # Kafka - Message Broker with zstd compression
+  # ============================================
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_COMPRESSION_TYPE: zstd
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+
+  # ============================================
+  # NATS JetStream - Async Messaging
+  # ============================================
+  nats:
+    image: nats:2.10-alpine
+    command: ["--jetstream", "-m", "8222", "--store_dir", "/data"]
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    volumes:
+      - nats_data:/data
+    restart: unless-stopped
+
+  # ============================================
+  # Redis - Caching
+  # ============================================
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+
+  # ============================================
+  # Kafka UI - Optional monitoring
+  # ============================================
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    ports:
+      - "8090:8080"
+    environment:
+      - KAFKA_CLUSTERS_0_NAME=local
+      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:9092
+    depends_on:
+      - kafka
+    profiles:
+      - monitoring
+
+volumes:
+  qdrant_data:
+  kafka_data:
+  nats_data:
+  redis_data:

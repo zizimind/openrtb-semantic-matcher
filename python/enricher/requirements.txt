@@ -1,0 +1,29 @@
+# FastAPI and server
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+
+# gRPC
+grpcio==1.60.0
+grpcio-tools==1.60.0
+
+# ML/Embeddings
+sentence-transformers>=3.0.0
+torch>=2.0.0
+
+# Vector DB
+qdrant-client==1.7.0
+
+# DSPy for LLM orchestration
+dspy-ai==2.4.0
+
+# Ollama client
+ollama==0.1.6
+
+# Utilities
+# pydantic managed by dspy-ai
+# pydantic==2.5.3
+pydantic-settings==2.1.0
+python-dotenv==1.0.0
+# httpx managed by ollama
+# httpx==0.26.0
+numpy>=1.24.0

@@ -1,0 +1,13 @@
+.env
+.DS_Store
+__pycache__/
+*.pyc
+*.gob
+data/logs/
+data/qdrant_data/
+data/nats_data/
+data/redis_data/
+gateway
+deployments-gateway
+.idea/
+*.pprof
